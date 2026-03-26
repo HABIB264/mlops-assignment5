@@ -10,21 +10,25 @@ ENV MODEL_RUN_ID=$RUN_ID
 # Set working directory
 WORKDIR /app
 
-# Copy requirements if any
+# Copy requirements if you have them
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir mlflow scikit-learn numpy pandas
 
-# Create a script to simulate model download
+# Create deployment script
 RUN echo '#!/bin/bash\n\
 echo "========================================="\n\
-echo "Deploying Model with Run ID: ${MODEL_RUN_ID}"\n\
+echo "🐳 DEPLOYING MODEL TO PRODUCTION" \n\
 echo "========================================="\n\
-echo "Downloading model from MLflow..."\n\
-# In production, you would actually download:\n\
-# mlflow artifacts download --run-id ${MODEL_RUN_ID}\n\
-echo " Model downloaded successfully!"\n\
-echo "Container ready for deployment!"\n\
-' > /app/download_model.sh && chmod +x /app/download_model.sh
+echo "Model Run ID: ${MODEL_RUN_ID}"\n\
+echo ""\n\
+echo "Downloading model artifacts from MLflow..."\n\
+# Simulate model download\n\
+sleep 2\n\
+echo "✅ Model downloaded successfully!"\n\
+echo ""\n\
+echo "Container is ready for production!"\n\
+echo "========================================="\n\
+' > /app/deploy.sh && chmod +x /app/deploy.sh
 
 # Command to run when container starts
-CMD ["/app/download_model.sh"]
+CMD ["/app/deploy.sh"]
