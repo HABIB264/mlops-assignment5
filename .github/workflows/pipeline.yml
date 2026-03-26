@@ -1,0 +1,107 @@
+# .github/workflows/pipeline.yml
+name: ML Model Validation and Deployment Pipeline
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  # Job 1: Validate the model
+  validate:
+    name: Validate Model
+    runs-on: ubuntu-latest
+    
+    steps:
+      # Step 1: Checkout code
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      # Step 2: Set up Python
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      
+      # Step 3: Install dependencies
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install mlflow scikit-learn numpy pandas
+      
+      # Step 4: Install DVC and pull data
+      - name: Install DVC
+        run: |
+          pip install dvc
+          dvc pull || echo "No DVC data found, using synthetic data"
+      
+      # Step 5: Run training script
+      - name: Train model
+        env:
+          MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
+        run: python train.py
+      
+      # Step 6: Upload model info as artifact
+      - name: Upload model info
+        uses: actions/upload-artifact@v4
+        with:
+          name: model-info
+          path: model_info.txt
+          retention-days: 1
+
+  # Job 2: Deploy the model (depends on validate)
+  deploy:
+    name: Deploy Model
+    runs-on: ubuntu-latest
+    needs: validate  # This creates the dependency
+    if: always() && needs.validate.result == 'success'  # Only run if validation succeeded
+    
+    steps:
+      # Step 1: Checkout code
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      # Step 2: Download model info artifact
+      - name: Download model info
+        uses: actions/download-artifact@v4
+        with:
+          name: model-info
+          path: ./
+      
+      # Step 3: Set up Python
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      
+      # Step 4: Install MLflow
+      - name: Install MLflow
+        run: pip install mlflow
+      
+      # Step 5: Check accuracy threshold
+      - name: Check model threshold
+        env:
+          MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
+        run: python check_threshold.py
+      
+      # Step 6: Mock Docker build (only if threshold check passes)
+      - name: Mock Docker build
+        if: success()  # Only if previous step succeeded
+        run: |
+          RUN_ID=$(cat model_info.txt)
+          echo "========================================="
+          echo "Building Docker image for Run ID: $RUN_ID"
+          echo "========================================="
+          echo "docker build --build-arg RUN_ID=$RUN_ID -t my-model:$RUN_ID ."
+          # Uncomment to actually build:
+          # docker build --build-arg RUN_ID=$RUN_ID -t my-model:$RUN_ID .
+      
+      # Step 7: Simulate deployment
+      - name: Deploy to registry (mock)
+        if: success()
+        run: |
+          RUN_ID=$(cat model_info.txt)
+          echo "Pushing image to registry: my-model:$RUN_ID"
+          echo "✅ Deployment completed successfully!"
