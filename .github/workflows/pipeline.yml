@@ -1,15 +1,13 @@
-name: ML Model Validation and Deployment Pipeline
+name: ML Model Validation and Deployment Pipeline (Single Job)
 
 on:
   push:
     branches: [main, master]
-  pull_request:
-    branches: [main, master]
   workflow_dispatch:
 
 jobs:
-  validate:
-    name: Validate Model
+  validate-and-deploy:
+    name: Validate and Deploy
     runs-on: ubuntu-latest
     
     steps:
@@ -26,83 +24,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install mlflow scikit-learn numpy pandas
       
-      - name: Install DVC
-        run: |
-          pip install dvc
-          dvc pull || echo "No DVC data found, using synthetic data"
-      
       - name: Train model
         run: python train.py
-      
-      - name: List generated files
-        run: |
-          echo "Current directory contents:"
-          ls -la
-          echo ""
-          echo "MLflow runs directory contents:"
-          if [ -d "mlruns" ]; then
-            ls -la mlruns/
-            echo ""
-            echo "Finding run ID files:"
-            find mlruns -name "meta.yaml" -exec grep -l "run_id" {} \;
-          else
-            echo "No mlruns directory found!"
-          fi
-      
-      - name: Upload model info
-        uses: actions/upload-artifact@v4
-        with:
-          name: model-info
-          path: model_info.txt
-          retention-days: 1
-      
-      - name: Upload entire mlruns directory
-        uses: actions/upload-artifact@v4
-        with:
-          name: mlruns-directory
-          path: mlruns/
-          retention-days: 1
-
-  deploy:
-    name: Deploy Model
-    runs-on: ubuntu-latest
-    needs: validate
-    if: always() && needs.validate.result == 'success'
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Download model info
-        uses: actions/download-artifact@v4
-        with:
-          name: model-info
-          path: ./
-      
-      - name: Download MLflow runs
-        uses: actions/download-artifact@v4
-        with:
-          name: mlruns-directory
-          path: ./mlruns/
-      
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-      
-      - name: Install MLflow
-        run: pip install mlflow
-      
-      - name: Verify downloaded files
-        run: |
-          echo "Model info file:"
-          cat model_info.txt
-          echo ""
-          echo "MLflow directory contents:"
-          ls -la mlruns/ || echo "mlruns directory not found!"
-          echo ""
-          echo "Searching for run data:"
-          find mlruns -name "*.yaml" -o -name "meta.yaml" 2>/dev/null || echo "No run data found"
       
       - name: Check model threshold
         run: python check_threshold.py
@@ -124,5 +47,4 @@ jobs:
           echo "========================================="
           echo "🚀 Deploying image to registry: my-model:$RUN_ID"
           echo "========================================="
-          echo "docker push my-model:$RUN_ID"
           echo "✅ Deployment completed successfully!"
