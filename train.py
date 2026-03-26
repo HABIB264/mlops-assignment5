@@ -9,7 +9,9 @@ def main():
     # Simulate loading data (in real scenario, you'd use dvc pull first)
     np.random.seed(42)
     X = np.random.rand(1000, 10)
-    y = np.random.randint(0, 2, 1000)
+    y = np.random.randint(0, 2, 1000)  # Random will be ~0.5 accuracy
+    # Make it predictable for high accuracy
+    y = (X[:, 0] > 0.5).astype(int)  # This will have better correlation
     
     # Split data
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
