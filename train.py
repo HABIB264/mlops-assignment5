@@ -7,8 +7,10 @@ from sklearn.model_selection import train_test_split
 import os
 
 def main():
-    # IMPORTANT: Use local file-based tracking instead of remote server
-    # This creates a local directory 'mlruns' to store all MLflow data
+    # Create mlruns directory if it doesn't exist
+    os.makedirs("./mlruns", exist_ok=True)
+    
+    # Use local file-based tracking
     mlflow.set_tracking_uri("file:./mlruns")
     print("✅ Using local MLflow tracking at ./mlruns")
     
@@ -17,7 +19,6 @@ def main():
     X = np.random.rand(1000, 10)
     
     # Create a meaningful relationship to ensure accuracy > 0.85
-    # This makes the model actually learn something useful
     y = (X[:, 0] + X[:, 1] + X[:, 2] > 1.5).astype(int)
     
     # Split data
@@ -37,19 +38,13 @@ def main():
     
     # Log to MLflow using local tracking
     with mlflow.start_run() as run:
-        # Log parameters
         mlflow.log_param("n_estimators", 100)
         mlflow.log_param("test_size", 0.2)
         mlflow.log_param("random_state", 42)
         mlflow.log_param("max_depth", 10)
-        
-        # Log metric
         mlflow.log_metric("accuracy", accuracy)
-        
-        # Log model
         mlflow.sklearn.log_model(model, "model")
         
-        # Get and save run ID
         run_id = run.info.run_id
         with open("model_info.txt", "w") as f:
             f.write(run_id)
@@ -57,7 +52,10 @@ def main():
         print(f"🏷️  Run ID: {run_id}")
         print(f"✅ Model saved successfully!")
         
-        # Print if model meets threshold
+        # Verify the run was saved
+        saved_run = mlflow.get_run(run_id)
+        print(f"✅ Verified run exists in MLflow tracking")
+        
         if accuracy >= 0.85:
             print(f"🎉 Model meets threshold! Accuracy: {accuracy:.4f} >= 0.85")
         else:
